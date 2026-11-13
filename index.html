@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0b0806">
+<meta name="mobile-web-app-capable" content="yes">
+<title>GRUNT! – prototyp rdzenia</title>
+<style>
+:root{--acc:#ffb020;--acc2:#7ee05a;--txt:#fff4e0}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--txt);touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#game{position:relative;height:100%;width:min(100vw,62vh);margin:0 auto;overflow:hidden;background:#000}
+canvas{display:block;width:100%;height:100%}
+#hud{position:absolute;left:0;right:0;top:0;padding:calc(env(safe-area-inset-top) + 10px) 12px 14px;background:linear-gradient(#000b,#0000);pointer-events:none;font-weight:800;text-shadow:0 2px 0 #000a;letter-spacing:.5px}
+.row{display:flex;justify-content:space-between;align-items:center}
+#money{font-size:22px;color:#ffe27a}
+#depth{font-size:20px}
+.lbl{font-size:11px;opacity:.9;margin-top:6px}
+.bar{height:8px;background:#0009;border-radius:4px;overflow:hidden;margin-top:3px;width:48%}
+.bar i{display:block;height:100%;width:0}
+.fuel i{background:linear-gradient(90deg,#ffb020,#ffd84a)}.hp i{background:#ff5a4a}.xp i{background:#7ee05a}
+#btns{position:absolute;right:10px;top:calc(env(safe-area-inset-top) + 46px);display:flex;flex-direction:column;gap:8px}
+.ib{width:46px;height:46px;border-radius:12px;border:2px solid #fff3;background:#000a;color:#fff;font-weight:900;font-size:15px}
+.ib.sos{background:#b3261e;border-color:#ff8a80}
+#toast{position:absolute;left:50%;top:36%;transform:translate(-50%,-50%);padding:9px 14px;border-radius:10px;background:#000c;font-weight:800;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center;max-width:86%}
+#toast.on{opacity:1}
+#hint{position:absolute;left:0;right:0;bottom:16%;text-align:center;font-weight:800;font-size:17px;pointer-events:none;opacity:0;transition:opacity .5s;text-shadow:0 2px 0 #000}
+#hint.on{opacity:1}
+#panel{position:absolute;inset:0;background:linear-gradient(#0b0806f0,#1c140ef8);overflow-y:auto;padding:calc(env(safe-area-inset-top) + 16px) 14px 28px;display:flex;flex-direction:column;gap:12px;touch-action:pan-y}
+#panel.glass{background:#0b0806c8;justify-content:center}
+#panel.hidden{display:none}
+h1,h2,h3{margin:0}
+h1{font-size:30px;color:var(--acc);letter-spacing:2px}
+h2{font-size:22px}
+h3{font-size:15px;opacity:.85;margin-bottom:4px}
+.card{background:#ffffff0d;border:1px solid #ffffff1a;border-radius:14px;padding:12px}
+.big{font-size:26px;font-weight:900;color:#ffe27a}
+.upg{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #ffffff12}
+.upg:last-child{border-bottom:0}
+.upg .ic{font-size:24px;width:34px;text-align:center}
+.upg .nm{flex:1;min-width:0}.upg .nm b{display:block}.upg .nm small{opacity:.75}
+.buy{min-width:88px;padding:10px 8px;border-radius:10px;border:0;background:var(--acc);color:#2a1700;font-weight:900;font-size:14px}
+.buy:disabled{background:#4a4038;color:#9a8f85}
+.go{padding:16px;border-radius:14px;border:0;background:var(--acc2);color:#132a07;font-weight:900;font-size:22px;letter-spacing:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.chip{padding:3px 9px;border-radius:999px;background:#ffffff16;font-size:13px}
+.elev{display:flex;flex-wrap:wrap;gap:6px}
+.sel-btn{padding:8px 11px;border-radius:10px;border:1px solid #ffffff2a;background:#ffffff10;color:#fff;font-weight:700}
+.sel-btn.on{background:var(--acc);color:#2a1700}
+.perks{display:flex;flex-direction:column;gap:10px}
+.perk{text-align:left;padding:14px;border-radius:14px;border:2px solid #7ee05a66;background:#11240bdd;color:#fff;font-size:14px}
+.perk b{font-size:17px;color:#b8ff9a;display:block;margin-bottom:2px}
+.muted{opacity:.7;font-size:13px}
+</style>
+</head>
+<body>
+<div id="game">
+  <canvas id="cv"></canvas>
+  <div id="hud">
+    <div class="row"><div id="depth">0 m</div><div id="money">$0</div></div>
+    <div class="lbl" id="fuelt">PALIWO</div><div class="bar fuel"><i id="fuelb"></i></div>
+    <div class="lbl">KADŁUB</div><div class="bar hp"><i id="hpb"></i></div>
+    <div class="lbl" id="lvl">WIERTŁO LV 0</div><div class="bar xp"><i id="xpb"></i></div>
+  </div>
+  <div id="btns"><button class="ib" id="pauseBtn" aria-label="Pauza">II</button><button class="ib sos" id="sosBtn" aria-label="Wezwij wyciągarkę">SOS</button></div>
+  <div id="toast"></div>
+  <div id="hint">Przeciągnij palcem w dowolnym miejscu,<br>żeby sterować wiertłem ⬇</div>
+  <div id="panel" class="hidden"></div>
+</div>
+<script>
+(() => {
+'use strict';
+// ====================== STAŁE ŚWIATA ======================
+const W = 64, H = 2720, SURF = 12, MPC = 0.5, VIEW_W = 40, RIG_X = W / 2;
+
+// ====================== MATERIAŁY ======================
+// kind: 0 pusty, 1 stały, 2 sypki (piasek), 3 ciecz
+const MAT = [];
+function def(name, col, kind, tier, hp, o = {}) { MAT.push(Object.assign({ name, col, kind, tier, hp, val: 0, xp: 0, ore: false }, o)); return MAT.length - 1; }
+const AIR = def('Pustka', [38, 26, 19], 0, 0, 0);
+const DIRT = def('Ziemia', [146, 96, 58], 1, 1, 1);
+const CLAY = def('Glina', [168, 108, 76], 1, 1, 1.6);
+const SAND = def('Piasek', [214, 184, 118], 2, 1, 0.5);
+const STONE = def('Kamień', [118, 116, 120], 1, 2, 3);
+const GRANITE = def('Granit', [150, 124, 128], 1, 3, 5);
+const BASALT = def('Bazalt', [66, 63, 76], 1, 4, 8);
+const CRYST = def('Skała krystaliczna', [88, 76, 130], 1, 5, 12);
+const OBSID = def('Obsydian', [44, 26, 64], 1, 4, 10);
+const BEDROCK = def('Skała macierzysta', [22, 20, 24], 1, 99, 1e9);
+const WATER = def('Woda', [48, 108, 228], 3, 0, 0);
+const LAVA = def('Lawa', [255, 112, 24], 3, 0, 0);
+const COAL = def('Węgiel', [40, 38, 40], 1, 1, 1.4, { val: 1, xp: 1, ore: true });
+const COPPER = def('Miedź', [222, 126, 58], 1, 1, 2, { val: 3, xp: 2, ore: true });
+const IRON = def('Żelazo', [205, 180, 166], 1, 2, 3.5, { val: 8, xp: 3, ore: true });
+const SILVER = def('Srebro', [226, 232, 244], 1, 2, 4, { val: 18, xp: 4, ore: true });
+const GOLD = def('Złoto', [255, 206, 38], 1, 3, 6, { val: 45, xp: 6, ore: true });
+const RUBY = def('Rubin', [230, 30, 72], 1, 4, 9, { val: 110, xp: 9, ore: true });
+const EMERALD = def('Szmaragd', [40, 220, 112], 1, 4, 10, { val: 180, xp: 12, ore: true });
+const DIAMOND = def('Diament', [160, 244, 255], 1, 5, 14, { val: 420, xp: 18, ore: true });
+const FUEL = def('Kanister', [240, 200, 40], 1, 1, 1);
+const CHEST = def('Skrzynia', [196, 134, 44], 1, 1, 2);
+const KIND = new Uint8Array(MAT.map(m => m.kind));
+const CSS = MAT.map(m => `rgb(${m.col[0]},${m.col[1]},${m.col[2]})`);
+
+const LAYERS = [
+  { name: 'Gleba', to: 60, base: DIRT, alt: CLAY, altT: .60, ores: [[COAL, 5], [COPPER, 4]], cave: .66, lava: 0 },
+  { name: 'Piaski', to: 160, base: DIRT, alt: SAND, altT: .56, ores: [[COPPER, 4], [IRON, 4], [COAL, 2]], cave: .65, lava: 0 },
+  { name: 'Skała', to: 320, base: STONE, alt: DIRT, altT: .68, ores: [[IRON, 4], [SILVER, 3], [GOLD, 1]], cave: .64, lava: 0 },
+  { name: 'Granit', to: 550, base: GRANITE, alt: STONE, altT: .64, ores: [[SILVER, 3], [GOLD, 3], [RUBY, 1]], cave: .64, lava: .45 },
+  { name: 'Magma', to: 850, base: BASALT, alt: GRANITE, altT: .66, ores: [[GOLD, 2], [RUBY, 3], [EMERALD, 2]], cave: .62, lava: .8 },
+  { name: 'Kryształy', to: 99999, base: CRYST, alt: BASALT, altT: .64, ores: [[EMERALD, 3], [DIAMOND, 2], [RUBY, 1]], cave: .63, lava: .5 },
+];
+const layerAt = d => { for (const L of LAYERS) if (d < L.to) return L; return LAYERS[LAYERS.length - 1]; };
+
+// ====================== ULEPSZENIA I PERKI ======================
+const UPG = [
+  { id: 'drill', ic: '⛏️', n: 'Wiertło', max: 10, base: 30, g: 1.7, d: l => `moc ${(4 * 1.3 ** l).toFixed(1)} · klasa ${1 + Math.floor((l + 1) / 2)}` },
+  { id: 'engine', ic: '⚙️', n: 'Silnik', max: 10, base: 20, g: 1.6, d: l => `prędkość ${(6 + .9 * l).toFixed(1)}` },
+  { id: 'tank', ic: '⛽', n: 'Zbiornik', max: 12, base: 25, g: 1.55, d: l => `paliwo ${25 + 9 * l} s` },
+  { id: 'hull', ic: '🛡️', n: 'Kadłub', max: 10, base: 40, g: 1.65, d: l => `HP ${100 + 35 * l} · żar −${Math.round(Math.min(.6, .06 * l) * 100)}%` },
+  { id: 'lamp', ic: '🔦', n: 'Reflektor', max: 8, base: 15, g: 1.6, d: l => `zasięg ${8 + 2 * l}` },
+  { id: 'trade', ic: '💰', n: 'Handel', max: 10, base: 60, g: 1.8, d: l => `wartość rudy ×${(1 + .15 * l).toFixed(2)}` },
+];
+const PERKS = [
+  { id: 'wide', n: 'Szeroki frez', d: 'Promień wiertła +22%', max: 4 },
+  { id: 'turbo', n: 'Turbo', d: 'Prędkość +18%', max: 5 },
+  { id: 'carbide', n: 'Węgliki spiekane', d: 'Moc kopania +30%', max: 5 },
+  { id: 'eco', n: 'Oszczędny silnik', d: 'Spalanie paliwa −15%', max: 4 },
+  { id: 'gold', n: 'Gorączka złota', d: 'Wartość rudy +25%', max: 5 },
+  { id: 'cool', n: 'Chłodnica', d: 'Obrażenia od lawy −35%', max: 3 },
+  { id: 'light', n: 'Szperacz', d: 'Zasięg światła +3', max: 3 },
+  { id: 'chain', n: 'Reakcja łańcuchowa', d: 'Rozbita ruda kruszy sąsiednią rudę tego samego typu', max: 1 },
+  { id: 'blast', n: 'Ładunek sejsmiczny', d: 'Co kilka sekund eksplozja wokół wiertła', max: 3 },
+  { id: 'sonar', n: 'Sonar', d: 'Ruda widoczna w ciemności', max: 2 },
+  { id: 'fuel', n: 'Kanister', d: 'Od razu +35% paliwa', max: 99, instant: true },
+  { id: 'heal', n: 'Spawarka', d: 'Od razu naprawia 60% kadłuba', max: 99, instant: true },
+];
+const xpNeed = lv => Math.round(10 * 1.5 ** lv);
+
+// ====================== ZAPIS ======================
+const SAVE_KEY = 'grunt_save_v1', WORLD_KEY = 'grunt_world_v1';
+let save = { money: 0, lv: { drill: 0, engine: 0, tank: 0, hull: 0, lamp: 0, trade: 0 }, best: 0, runs: 0, earned: 0, seed: (Math.random() * 1e9) | 0, startDepth: 0, sound: true, vib: true };
+try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s, { lv: Object.assign(save.lv, s.lv || {}) }); } catch (e) {}
+
+// ====================== SZUM / GENERATOR ======================
+function hash(x, y, s) { let h = (Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(s | 0, 982451653)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+function vnoise(x, y, s) { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf); const a = hash(xi, yi, s), b = hash(xi + 1, yi, s), c = hash(xi, yi + 1, s), d = hash(xi + 1, yi + 1, s); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+function fbm(x, y, s, o) { let t = 0, a = .5, f = 1, n = 0; for (let k = 0; k < o; k++) { t += a * vnoise(x * f, y * f, s + k * 101); n += a; a *= .5; f *= 2; } return t / n; }
+function pickOre(list, r) { let tot = 0; for (const [, w] of list) tot += w; r *= tot; for (const [m, w] of list) { if (r < w) return m; r -= w; } return list[0][0]; }
+
+const world = new Uint8Array(W * H), dmg = new Float32Array(W * H), stamp = new Uint16Array(W * H), seen = new Uint8Array(W * H);
+function generate(seed) {
+  seen.fill(0); dmg.fill(0);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let m = AIR;
+    if (y < SURF) m = AIR;
+    else if (x === 0 || x === W - 1 || y >= H - 3) m = BEDROCK;
+    else {
+      const d = (y - SURF) * MPC;
+      const L = layerAt(Math.max(0, d + (fbm(x * .11, y * .11, seed + 3, 2) - .5) * 14));
+      m = fbm(x * .09, y * .09, seed + 1, 3) > L.altT ? L.alt : L.base;
+      const cave = d > 6 && fbm(x * .07, y * .05, seed + 7, 3) > L.cave;
+      if (cave) {
+        const lq = fbm(x * .035, y * .035, seed + 13, 2);
+        m = lq > .58 ? ((L.lava > 0 && fbm(x * .02, y * .02, seed + 17, 2) < L.lava) ? LAVA : WATER) : AIR;
+      } else if (vnoise(x * .28, y * .28, seed + 21) > .8 - Math.min(.05, d / 5000)) {
+        m = pickOre(L.ores, hash(Math.floor(x / 6), Math.floor(y / 6), seed + 29));
+      } else {
+        const r = hash(x, y, seed + 31);
+        if (d > 8 && r < .0024) m = FUEL;
+        else if (d > 15 && r > .99955) m = CHEST;
+      }
+    }
+    world[y * W + x] = m;
+  }
+}
+function encodeWorld() {
+  const out = []; let i = 0;
+  while (i < world.length) { const m = world[i]; let n = 1; while (i + n < world.length && world[i + n] === m && n < 255) n++; out.push(m, n); i += n; }
+  const u = new Uint8Array(out); let s = '';
+  for (let k = 0; k < u.length; k += 0x8000) s += String.fromCharCode.apply(null, u.subarray(k, k + 0x8000));
+  return btoa(s);
+}
+function decodeWorld(b64) {
+  const s = atob(b64); let p = 0;
+  for (let k = 0; k + 1 < s.length; k += 2) { const m = s.charCodeAt(k), n = s.charCodeAt(k + 1); if (m >= MAT.length || p + n > world.length) return false; world.fill(m, p, p + n); p += n; }
+  return p === world.length;
+}
+let noSave = false;
+function persist() { if (noSave) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); localStorage.setItem(WORLD_KEY, encodeWorld()); } catch (e) {} }
+
+// ====================== DŹWIĘK / WIBRACJE ======================
+const AU = { ctx: null, g: null, o: null };
+function audioInit() {
+  if (AU.ctx) return;
+  try {
+    const c = new (window.AudioContext || window.webkitAudioContext)();
+    const o = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+    o.type = 'sawtooth'; o.frequency.value = 55; f.type = 'lowpass'; f.frequency.value = 700; g.gain.value = 0;
+    o.connect(f); f.connect(g); g.connect(c.destination); o.start();
+    Object.assign(AU, { ctx: c, g, o });
+  } catch (e) {}
+}
+function drillSound(level) { if (!AU.ctx) return; const t = AU.ctx.currentTime; AU.g.gain.setTargetAtTime(save.sound ? level * .045 : 0, t, .06); AU.o.frequency.setTargetAtTime(48 + level * 42, t, .08); }
+function blip(freq, dur = .07, vol = .06) {
+  if (!AU.ctx || !save.sound) return;
+  const c = AU.ctx, o = c.createOscillator(), g = c.createGain(); o.type = 'square'; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, c.currentTime); g.gain.exponentialRampToValueAtTime(.0001, c.currentTime + dur);
+  o.connect(g); g.connect(c.destination); o.start(); o.stop(c.currentTime + dur);
+}
+const vib = ms => { if (save.vib && navigator.vibrate) try { navigator.vibrate(ms); } catch (e) {} };
+
+// ====================== STAN GRY ======================
+const $ = id => document.getElementById(id);
+const canvas = $('cv'), ctx = canvas.getContext('2d'), panel = $('panel');
+const buf = document.createElement('canvas'), bctx = buf.getContext('2d');
+let img, cs = 10, VIEW_H = 70, dpr = 1;
+let state = 'shop', run = null, lastSummary = null, RS = null, tick = 1, shake = 0, now = 0;
+const P = { x: RIG_X, y: SURF - 2.5, ang: 0, fuel: 0, hp: 0 };
+const cam = { x: RIG_X - VIEW_W / 2, y: 0 };
+const parts = [], pops = [], rings = [];
+const input = { active: false, ax: 0, ay: 0, cx: 0, cy: 0, x: 0, y: 0 }, keys = new Set();
+
+function computeStats() {
+  const l = save.lv, p = (run && run.perks) || {};
+  const s = { power: 4 * 1.3 ** l.drill, tier: 1 + Math.floor((l.drill + 1) / 2), speed: 6 + .9 * l.engine, fuel: 25 + 9 * l.tank, hp: 100 + 35 * l.hull, heat: Math.min(.6, .06 * l.hull), light: 8 + 2 * l.lamp, value: 1 + .15 * l.trade, r: 1.8, burn: 1 };
+  s.r *= 1.22 ** (p.wide || 0); s.speed *= 1.18 ** (p.turbo || 0); s.power *= 1.3 ** (p.carbide || 0); s.burn *= .85 ** (p.eco || 0);
+  s.value *= 1 + .25 * (p.gold || 0); s.heat = 1 - (1 - s.heat) * .65 ** (p.cool || 0); s.light += 3 * (p.light || 0);
+  s.chain = !!p.chain; s.blast = p.blast || 0; s.sonar = p.sonar || 0;
+  return s;
+}
+
+// ====================== GEOMETRIA ======================
+function sqDistToCell(px, py, cx, cy) { const dx = Math.max(cx - px, 0, px - (cx + 1)), dy = Math.max(cy - py, 0, py - (cy + 1)); return dx * dx + dy * dy; }
+function isSolidAt(x, y) { if (x < 0 || x >= W || y < 0 || y >= H) return true; const k = KIND[world[y * W + x]]; return k === 1 || k === 2; }
+function pen(px, py) {
+  const r = RS.r * .82, r2 = r * r; let s = 0;
+  for (let y = Math.floor(py - r); y <= Math.floor(py + r); y++) for (let x = Math.floor(px - r); x <= Math.floor(px + r); x++) {
+    if (!isSolidAt(x, y)) continue; const d2 = sqDistToCell(px, py, x, y); if (d2 < r2) s += r - Math.sqrt(d2);
+  }
+  return s;
+}
+function tryMove(dx, dy) {
+  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / .2)), sx = dx / steps, sy = dy / steps; let moved = false;
+  for (let k = 0; k < steps; k++) {
+    const cur = pen(P.x, P.y), ok = (x, y) => { const p = pen(x, y); return p <= 1e-6 || p < cur - 1e-4; };
+    if (ok(P.x + sx, P.y + sy)) { P.x += sx; P.y += sy; moved = true; }
+    else if (sx && ok(P.x + sx, P.y)) { P.x += sx; moved = true; }
+    else if (sy && ok(P.x, P.y + sy)) { P.y += sy; moved = true; }
+    else break;
+  }
+  return moved;
+}
+function carve(cx, cy, r) {
+  for (let y = Math.floor(cy - r - 3); y <= cy + r + 3; y++) for (let x = 1; x < W - 1; x++) {
+    if (y < SURF || y >= H - 3) continue; const i = y * W + x, d = Math.hypot(x + .5 - cx, y + .5 - cy);
+    if (d < r || (d < r + 3 && world[i] === LAVA)) { world[i] = AIR; dmg[i] = 0; }
+  }
+}
+
+// ====================== SYMULACJA PIASKU I CIECZY ======================
+let occOn = false, occR2 = 0, protR2 = 0;
+const occ = (x, y) => occOn && sqDistToCell(P.x, P.y, x, y) < occR2;
+function swap(i, j) { const t = world[i]; world[i] = world[j]; world[j] = t; stamp[i] = stamp[j] = tick; dmg[i] = dmg[j] = 0; }
+function simulate() {
+  tick = (tick + 1) & 0xffff || 1;
+  occOn = state === 'run'; occR2 = (RS.r * .95) ** 2; protR2 = (RS.r + 3) ** 2;
+  const y0 = Math.max(SURF - 2, Math.floor(cam.y) - 40), y1 = Math.min(H - 4, Math.floor(cam.y) + VIEW_H + 40), ltr = tick & 1;
+  for (let y = y1; y >= y0; y--) for (let n = 1; n < W - 1; n++) {
+    const x = ltr ? n : W - 1 - n, i = y * W + x, m = world[i], k = KIND[m];
+    if (k < 2 || stamp[i] === tick) continue;
+    if (k === 2) stepPowder(x, y, i);
+    else if (m === WATER) stepLiquid(x, y, i, 3);
+    else stepLava(x, y, i);
+  }
+}
+function stepPowder(x, y, i) {
+  const b = i + W, mb = world[b];
+  if ((mb === AIR || KIND[mb] === 3) && !occ(x, y + 1)) { swap(i, b); return; }
+  const dl = Math.random() < .5 ? -1 : 1;
+  for (const dx of [dl, -dl]) if (world[i + dx] === AIR && world[b + dx] === AIR && !occ(x + dx, y + 1)) { swap(i, b + dx); return; }
+}
+function stepLiquid(x, y, i, disp) {
+  const b = i + W;
+  if (world[b] === AIR && !occ(x, y + 1)) { swap(i, b); return; }
+  const dl = Math.random() < .5 ? -1 : 1;
+  for (const dx of [dl, -dl]) if (world[b + dx] === AIR && world[i + dx] === AIR && !occ(x + dx, y + 1)) { swap(i, b + dx); return; }
+  for (const dx of [dl, -dl]) {
+    let tx = x;
+    for (let s = 1; s <= disp; s++) { const nx = x + dx * s, j = y * W + nx; if (world[j] !== AIR || occ(nx, y)) break; tx = nx; if (world[j + W] === AIR) break; }
+    if (tx !== x) { swap(i, y * W + tx); return; }
+  }
+}
+function stepLava(x, y, i) {
+  for (const j of [i - W, i + W, i - 1, i + 1]) if (world[j] === WATER) {
+    world[j] = AIR; stamp[j] = tick; steam(j % W + .5, ((j / W) | 0) + .5);
+    // Ochrona przed zamurowaniem: obsydian nie powstaje przy wiertle (lekcja z recenzji Dig Inc.)
+    world[i] = (occOn && sqDistToCell(P.x, P.y, x, y) < protR2) ? AIR : OBSID; stamp[i] = tick; return;
+  }
+  if (tick % 3 === 0) stepLiquid(x, y, i, 1);
+}
+
+// ====================== CZĄSTECZKI ======================
+function addPart(p) { if (parts.length < 500) parts.push(p); }
+function spawnDebris(x, y, m, n) { for (let k = 0; k < n; k++) addPart({ x, y, vx: (Math.random() - .5) * 9, vy: -Math.random() * 7, life: .5 + Math.random() * .5, col: CSS[m], s: .32, g: 30, home: MAT[m].ore && k % 2 === 0 }); }
+function steam(x, y) { for (let k = 0; k < 3; k++) addPart({ x, y, vx: (Math.random() - .5) * 2, vy: -2 - Math.random() * 2, life: .9, col: 'rgba(235,235,245,.75)', s: .6, g: -2 }); }
+function popup(x, y, text, col) { pops.push({ x, y, text, col, life: 1.1 }); }
+let toastT = 0;
+function toast(t, dur = 2.2) { const e = $('toast'); e.innerHTML = t; e.classList.add('on'); toastT = dur; }
+
+// ====================== KOPANIE ======================
+let tooHard = false;
+function dig(dt, jx, jy, moving) {
+  const reach = RS.r + .45, reach2 = reach * reach; let dug = false; tooHard = false;
+  for (let y = Math.floor(P.y - reach); y <= Math.floor(P.y + reach); y++) for (let x = Math.floor(P.x - reach); x <= Math.floor(P.x + reach); x++) {
+    if (x < 1 || x >= W - 1 || y < 0 || y >= H) continue;
+    const i = y * W + x, m = world[i], k = KIND[m];
+    if (k !== 1 && k !== 2) continue;
+    if (sqDistToCell(P.x, P.y, x, y) >= reach2) continue;
+    const mt = MAT[m];
+    if (mt.tier > RS.tier) { if (m !== BEDROCK) tooHard = true; continue; }
+    let f = .45;
+    if (moving) { const cx = x + .5 - P.x, cy = y + .5 - P.y, l = Math.hypot(cx, cy) || 1; if ((cx * jx + cy * jy) / l > .25) f = 1; }
+    dmg[i] += RS.power * f * dt; dug = true;
+    if (dmg[i] >= mt.hp) breakCell(x, y, 0);
+  }
+  return dug;
+}
+function breakCell(x, y, ch) {
+  const i = y * W + x, m = world[i], mt = MAT[m];
+  world[i] = AIR; dmg[i] = 0;
+  spawnDebris(x + .5, y + .5, m, mt.ore ? 4 : 2);
+  const depthM = Math.max(0, (y - SURF) * MPC);
+  if (mt.ore) {
+    const v = Math.max(1, Math.round(mt.val * (1 + depthM / 400) * RS.value));
+    run.pending += v; run.exp += mt.xp; run.ores[m] = (run.ores[m] || 0) + 1; blip(520 + mt.xp * 45, .05, .04);
+    if (RS.chain && ch < 8) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx > 0 && nx < W - 1 && world[ny * W + nx] === m) breakCell(nx, ny, ch + 1); }
+  } else if (m === FUEL) {
+    P.fuel = Math.min(RS.fuel * 1.25, P.fuel + 8); popup(x + .5, y, '+8 s ⛽', '#ffd84a'); blip(880, .12); run.exp += 1;
+  } else if (m === CHEST) {
+    const v = Math.round((30 + depthM * .8) * RS.value); run.pending += v; run.exp += 10; popup(x + .5, y - 1, 'SKRZYNIA!', '#ffb020'); blip(660, .2); vib(40);
+  } else run.exp += .05;
+}
+function blast() {
+  const r = 2.6 + .6 * RS.blast;
+  for (let y = Math.floor(P.y - r); y <= P.y + r; y++) for (let x = Math.floor(P.x - r); x <= P.x + r; x++) {
+    if (x < 1 || x >= W - 1 || y < SURF || y >= H - 3) continue;
+    const m = world[y * W + x]; if ((KIND[m] === 1 || KIND[m] === 2) && MAT[m].tier <= RS.tier + 1 && Math.hypot(x + .5 - P.x, y + .5 - P.y) < r) breakCell(x, y, 0);
+  }
+  rings.push({ x: P.x, y: P.y, r, life: .35 }); shake = .6; blip(90, .25, .1); vib(30);
+}
+
+// ====================== PRZEBIEG WYPRAWY ======================
+function startRun(sd) {
+  run = { time: 0, exp: 0, lv: 0, next: xpNeed(0), ores: {}, earn: 0, pending: 0, pendT: 0, maxDepth: 0, perks: {}, blastT: 0, stuck: 0, layer: '', reason: '', startDepth: sd };
+  RS = computeStats();
+  P.x = RIG_X; P.ang = 0;
+  if (sd > 0) { P.y = SURF + sd / MPC; carve(P.x, P.y, 3.2); } else P.y = SURF - 2.5;
+  P.fuel = RS.fuel; P.hp = RS.hp;
+  state = 'run'; hidePanel();
+  if (save.runs === 0) { $('hint').classList.add('on'); setTimeout(() => $('hint').classList.remove('on'), 6000); }
+}
+function flushMoney() { if (run.pending > 0) { save.money += run.pending; run.earn += run.pending; popup(P.x, P.y - RS.r - .6, '+$' + run.pending, '#ffe27a'); run.pending = 0; } run.pendT = 0; }
+function probeEnv() {
+  const r = RS.r + .6, r2 = r * r; let water = false, lava = false;
+  for (let y = Math.floor(P.y - r); y <= P.y + r; y++) for (let x = Math.floor(P.x - r); x <= P.x + r; x++) {
+    if (x < 0 || x >= W || y < 0 || y >= H) continue; const m = world[y * W + x];
+    if ((m === WATER || m === LAVA) && sqDistToCell(P.x, P.y, x, y) < r2) { if (m === WATER) water = true; else lava = true; }
+  }
+  return { water, lava };
+}
+function updateRun(dt) {
+  run.time += dt;
+  let jx = input.x, jy = input.y;
+  if (keys.size) { jx = (keys.has('ArrowRight') || keys.has('d') ? 1 : 0) - (keys.has('ArrowLeft') || keys.has('a') ? 1 : 0); jy = (keys.has('ArrowDown') || keys.has('s') ? 1 : 0) - (keys.has('ArrowUp') || keys.has('w') ? 1 : 0); }
+  const mag = Math.hypot(jx, jy), moving = mag > .12; if (mag > 1) { jx /= mag; jy /= mag; }
+  const env = probeEnv();
+  const dug = dig(dt, jx / (mag || 1), jy / (mag || 1), moving);
+  let movedNow = false;
+  if (moving) movedNow = tryMove(jx * RS.speed * (env.water ? .62 : 1) * dt, jy * RS.speed * (env.water ? .62 : 1) * dt);
+  P.ang += dt * (dug ? 20 : 8);
+  if (P.y > SURF) P.fuel -= dt * (1 + (dug ? .35 : 0)) * RS.burn;
+  if (env.lava) { P.hp -= dt * 34 * (1 - RS.heat); shake = Math.max(shake, .25); if (Math.random() < .3) addPart({ x: P.x, y: P.y, vx: (Math.random() - .5) * 6, vy: -4, life: .4, col: '#ffb020', s: .3, g: 10 }); if (Math.random() < .05) vib(20); }
+  const dm = Math.max(0, (P.y - SURF) * MPC); run.maxDepth = Math.max(run.maxDepth, Math.floor(dm));
+  const L = dm > 1 ? layerAt(dm).name : ''; if (L && L !== run.layer) { run.layer = L; if (dm > 5) toast('Warstwa: <b>' + L + '</b>', 1.6); }
+  run.pendT += dt; if (run.pending > 0 && run.pendT > .35) flushMoney();
+  if (RS.blast) { run.blastT += dt; if (run.blastT > 7 - RS.blast) { run.blastT = 0; blast(); } }
+  if (moving && !movedNow && tooHard) { run.stuck += dt; if (run.stuck > 2.2) { toast('Za twarda skała!<br><small>Ulepsz Wiertło (klasa) albo użyj SOS</small>', 2.5); run.stuck = -4; } } else if (run.stuck > 0) run.stuck = 0;
+  drillSound(dug ? 1 : moving ? .5 : .25);
+  if (run.exp >= run.next) { run.exp -= run.next; run.lv++; run.next = xpNeed(run.lv); flushMoney(); openPerk(); return; }
+  if (P.fuel <= 0) endRun('fuel'); else if (P.hp <= 0) endRun('hull'); else if (P.y > H - 8) endRun('bottom');
+}
+const REASONS = { fuel: 'Brak paliwa — wyciągarka!', hull: 'Kadłub zniszczony — wyciągarka!', sos: 'SOS — wyciągarka w drodze', bottom: 'Dno prototypu osiągnięte!' };
+let winchT = 0;
+function endRun(reason) {
+  if (state !== 'run') return;
+  flushMoney(); run.reason = reason; state = 'winch'; winchT = 0; input.active = false; input.x = input.y = 0; keys.clear();
+  drillSound(0); vib(60); toast(REASONS[reason], 1.8); hidePanel();
+}
+function updateWinch(dt) {
+  // Wiertło jest na linie: wyciągarka zawsze wyciąga je na powierzchnię, przez wszystko. Nie da się utknąć na zawsze.
+  winchT += dt; const target = SURF - 2.5, sp = Math.min(220, 25 + winchT * 90);
+  P.y = Math.max(target, P.y - sp * dt); P.x += (RIG_X - P.x) * Math.min(1, dt * 3); P.ang += dt * 4;
+  if (P.y <= target + .01 && Math.abs(P.x - RIG_X) < .3) finishRun();
+}
+function finishRun() {
+  state = 'shop'; P.x = RIG_X; P.y = SURF - 2.5;
+  save.runs++; save.best = Math.max(save.best, run.maxDepth); save.earned += run.earn;
+  lastSummary = run; run = null; RS = computeStats(); persist(); showShop();
+}
+
+// ====================== PANELE (SKLEP, PERKI, PAUZA) ======================
+function hidePanel() { panel.className = 'hidden'; panel.innerHTML = ''; }
+const fmt = n => '$' + Math.floor(n).toLocaleString('pl-PL');
+function showShop() {
+  const s = lastSummary;
+  const cost = u => Math.round(u.base * u.g ** save.lv[u.id]);
+  const depths = []; for (let d = 0; d <= Math.min(save.best, 1300); d += 100) depths.push(d);
+  if (!depths.includes(save.startDepth)) save.startDepth = 0;
+  let h = `<h1>GRUNT!</h1><div class="muted">Prototyp rdzenia · baza GRUNT Co.</div>`;
+  if (s) {
+    const ores = Object.entries(s.ores).sort((a, b) => MAT[b[0]].val - MAT[a[0]].val).map(([m, n]) => `<span class="chip" style="border-left:6px solid ${CSS[m]}">${MAT[m].name} ×${n}</span>`).join('');
+    h += `<div class="card"><h3>${REASONS[s.reason] || 'Koniec wyprawy'}</h3>
+      <div>Głębokość: <b>${s.maxDepth} m</b> · Czas: <b>${Math.round(s.time)} s</b> · Wiertło LV <b>${s.lv}</b></div>
+      <div>Zarobek: <b style="color:#ffe27a">${fmt(s.earn)}</b> · Rekord: <b>${save.best} m</b></div>
+      ${ores ? `<div class="chips">${ores}</div>` : ''}
+      ${s.reason === 'bottom' ? '<div class="muted" style="margin-top:6px">W pełnej grze: kolejne warstwy, Jądro i Koncesja (prestiż).</div>' : ''}</div>`;
+  }
+  h += `<div class="card"><div class="row"><h3>Kasa firmy</h3><div class="big">${fmt(save.money)}</div></div>`;
+  for (const u of UPG) {
+    const l = save.lv[u.id], mx = l >= u.max, c = cost(u);
+    h += `<div class="upg"><div class="ic">${u.ic}</div><div class="nm"><b>${u.n} <span class="muted">Lv ${l}/${u.max}</span></b><small>${u.d(l)}${mx ? '' : ' → ' + u.d(l + 1).split(' · ')[0]}</small></div>
+      <button class="buy" data-act="buy" data-id="${u.id}" ${mx || save.money < c ? 'disabled' : ''}>${mx ? 'MAX' : fmt(c)}</button></div>`;
+  }
+  h += `</div><div class="card"><h3>Winda (start wyprawy)</h3><div class="elev">${depths.map(d => `<button class="sel-btn ${d === save.startDepth ? 'on' : ''}" data-act="depth" data-d="${d}">${d} m</button>`).join('')}</div>
+    <div class="muted" style="margin-top:6px">Nowe stacje windy co 100 m rekordu.</div></div>
+    <button class="go" data-act="go">KOP! ▶</button>
+    <div class="card"><h3>Ustawienia</h3><div class="elev">
+      <button class="sel-btn ${save.sound ? 'on' : ''}" data-act="sound">🔊 Dźwięk</button>
+      <button class="sel-btn ${save.vib ? 'on' : ''}" data-act="vib">📳 Wibracje</button>
+      <button class="sel-btn" data-act="newworld">🌍 Nowy świat</button>
+      <button class="sel-btn" data-act="reset">🗑️ Reset</button></div>
+      <div class="muted" style="margin-top:8px">Wyprawy: ${save.runs} · Zarobione łącznie: ${fmt(save.earned)} · Działa offline, bez reklam.</div></div>`;
+  panel.className = ''; panel.innerHTML = h;
+}
+function openPerk() {
+  state = 'perk'; drillSound(0); vib(50); blip(990, .15); blip(1320, .2);
+  const avail = PERKS.filter(p => (run.perks[p.id] || 0) < p.max);
+  const pick = []; while (pick.length < 3 && avail.length) pick.push(avail.splice((Math.random() * avail.length) | 0, 1)[0]);
+  panel.className = 'glass';
+  panel.innerHTML = `<h2 style="text-align:center;color:#7ee05a;font-size:30px">WIERTŁO LV ${run.lv}!</h2><div class="muted" style="text-align:center">Wybierz ulepszenie na tę wyprawę</div>
+    <div class="perks">${pick.map(p => `<button class="perk" data-act="perk" data-id="${p.id}"><b>${p.n}${p.instant ? '' : ` <span class="muted">${(run.perks[p.id] || 0)}→${(run.perks[p.id] || 0) + 1}</span>`}</b>${p.d}</button>`).join('')}</div>`;
+}
+function applyPerk(id) {
+  const p = PERKS.find(q => q.id === id); run.perks[id] = (run.perks[id] || 0) + 1; RS = computeStats();
+  if (id === 'fuel') P.fuel = Math.min(RS.fuel * 1.25, P.fuel + RS.fuel * .35);
+  if (id === 'heal') P.hp = Math.min(RS.hp, P.hp + RS.hp * .6);
+  toast(p.n + '!', 1); state = 'run'; hidePanel();
+}
+function openPause() {
+  if (state !== 'run') return; state = 'pause'; drillSound(0);
+  panel.className = 'glass';
+  panel.innerHTML = `<h2 style="text-align:center">Pauza</h2><button class="go" data-act="resume">WZNÓW ▶</button>
+    <div class="elev" style="justify-content:center"><button class="sel-btn ${save.sound ? 'on' : ''}" data-act="psound">🔊 Dźwięk</button><button class="sel-btn ${save.vib ? 'on' : ''}" data-act="pvib">📳 Wibracje</button></div>
+    <button class="buy" style="background:#b3261e;color:#fff;padding:14px" data-act="sos">SOS: wezwij wyciągarkę (zarobek zostaje)</button>`;
+}
+panel.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return; audioInit();
+  const a = b.dataset.act;
+  if (a === 'buy') { const u = UPG.find(q => q.id === b.dataset.id), c = Math.round(u.base * u.g ** save.lv[u.id]); if (save.money >= c && save.lv[u.id] < u.max) { save.money -= c; save.lv[u.id]++; RS = computeStats(); blip(740, .1); persist(); showShop(); } }
+  else if (a === 'depth') { save.startDepth = +b.dataset.d; showShop(); }
+  else if (a === 'go') { blip(440, .1); startRun(save.startDepth); }
+  else if (a === 'sound' || a === 'psound') { save.sound = !save.sound; persist(); a === 'sound' ? showShop() : (state = 'run', openPause()); }
+  else if (a === 'vib' || a === 'pvib') { save.vib = !save.vib; persist(); a === 'vib' ? showShop() : (state = 'run', openPause()); }
+  else if (a === 'newworld') { if (confirm('Wygenerować nowy świat? Ulepszenia i kasa zostają.')) { save.seed = (Math.random() * 1e9) | 0; generate(save.seed); save.startDepth = 0; persist(); showShop(); } }
+  else if (a === 'reset') { if (confirm('Usunąć cały postęp?')) { noSave = true; localStorage.removeItem(SAVE_KEY); localStorage.removeItem(WORLD_KEY); location.reload(); } }
+  else if (a === 'perk') applyPerk(b.dataset.id);
+  else if (a === 'resume') { state = 'run'; hidePanel(); }
+  else if (a === 'sos') { state = 'run'; endRun('sos'); }
+});
+$('pauseBtn').addEventListener('click', () => { audioInit(); openPause(); });
+$('sosBtn').addEventListener('click', () => { audioInit(); if (state === 'run') endRun('sos'); });
+
+// ====================== STEROWANIE ======================
+const JOY_R = 46;
+function updInput() {
+  const dx = input.cx - input.ax, dy = input.cy - input.ay; let x = dx / JOY_R, y = dy / JOY_R; const m = Math.hypot(x, y);
+  if (m > 1) { x /= m; y /= m; } if (m < .12) { x = 0; y = 0; } input.x = x; input.y = y;
+}
+canvas.addEventListener('pointerdown', e => { audioInit(); if (state !== 'run') return; input.active = true; input.ax = input.cx = e.clientX; input.ay = input.cy = e.clientY; updInput(); try { canvas.setPointerCapture(e.pointerId); } catch (_) {} });
+canvas.addEventListener('pointermove', e => {
+  if (!input.active) return; input.cx = e.clientX; input.cy = e.clientY;
+  const dx = input.cx - input.ax, dy = input.cy - input.ay, d = Math.hypot(dx, dy); if (d > JOY_R) { input.ax = input.cx - dx / d * JOY_R; input.ay = input.cy - dy / d * JOY_R; }
+  updInput();
+});
+const endPtr = () => { input.active = false; input.x = input.y = 0; };
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+addEventListener('keydown', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(k)) { keys.add(k); e.preventDefault(); audioInit(); } if (k === 'Escape' || k === 'p') state === 'pause' ? (state = 'run', hidePanel()) : openPause(); });
+addEventListener('keyup', e => keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key));
+document.addEventListener('visibilitychange', () => { if (document.hidden) { openPause(); persist(); } });
+
+// ====================== RENDER ======================
+function resize() {
+  const r = $('game').getBoundingClientRect(); dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+  cs = canvas.width / VIEW_W; VIEW_H = Math.ceil(canvas.height / cs);
+  buf.width = VIEW_W + 2; buf.height = VIEW_H + 2; img = bctx.createImageData(buf.width, buf.height);
+}
+addEventListener('resize', resize);
+function updateCamera(dt) {
+  const tx = Math.max(0, Math.min(W - VIEW_W, P.x - VIEW_W / 2)), ty = Math.max(0, Math.min(H - VIEW_H, P.y - VIEW_H * .45));
+  const k = Math.min(1, dt * (state === 'winch' ? 12 : 6)); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+}
+function render() {
+  const cx0 = Math.floor(cam.x), cy0 = Math.floor(cam.y), fx = cam.x - cx0, fy = cam.y - cy0, bw = VIEW_W + 2, bh = VIEW_H + 2, d = img.data;
+  const L = RS.light, invL2 = 1 / (L * L), sonR2 = RS.sonar ? (8 + 5 * RS.sonar) ** 2 : 0, t = now / 1000;
+  let p = 0;
+  for (let j = 0; j < bh; j++) {
+    const y = cy0 + j;
+    for (let i = 0; i < bw; i++, p += 4) {
+      const x = cx0 + i;
+      if (x < 0 || x >= W || y < 0 || y >= H) { d[p] = d[p + 1] = d[p + 2] = 0; d[p + 3] = 255; continue; }
+      const idx = y * W + x, m = world[idx], mt = MAT[m];
+      if (y < SURF && m === AIR) { const k = y / SURF; d[p] = 96 + 70 * k; d[p + 1] = 160 + 50 * k; d[p + 2] = 222 + 20 * k; d[p + 3] = 255; continue; }
+      let sh = .9 + hash(x, y, 5) * .2, r = mt.col[0], g = mt.col[1], b = mt.col[2];
+      if (mt.ore) { if (hash(x, y, 9) < .45) sh *= .72; }
+      else if (m === WATER) sh = .85 + .15 * Math.sin(x * .9 + y * .4 + t * 2.5);
+      else if (m === LAVA) sh = .8 + .2 * Math.sin(x * .7 + y * .5 + t * 3.2);
+      else if (m === FUEL) sh = (x + y) & 1 ? 1 : .25;
+      else if (m === CHEST) sh = (x + y) & 1 ? 1 : .62;
+      if (m === DIRT && y === SURF) { r = 88; g = 158; b = 62; }
+      const k0 = KIND[m];
+      if (k0 === 1 || k0 === 2) {
+        if (KIND[world[idx - W]] === 0) sh *= 1.18; else if (y < H - 1 && KIND[world[idx + W]] === 0) sh *= .72;
+        if (dmg[idx] > 0) sh *= 1 - .45 * Math.min(1, dmg[idx] / mt.hp);
+      }
+      const dx = x + .5 - P.x, dy = y + .5 - P.y, d2 = dx * dx + dy * dy;
+      let li = 1.3 - d2 * invL2; li = li < 0 ? 0 : li > 1 ? 1 : li;
+      if (y < SURF + 10) li = Math.max(li, 1 - (y - SURF) / 10);
+      if (m === LAVA) li = 1;
+      if (li > .3) seen[idx] = 1; else if (seen[idx] && li < .15) li = .15;
+      if (sonR2 && mt.ore && d2 < sonR2 && li < .75) li = .75;
+      const k = sh * li; d[p] = r * k; d[p + 1] = g * k; d[p + 2] = b * k; d[p + 3] = 255;
+    }
+  }
+  bctx.putImageData(img, 0, 0);
+  const ox = shake > 0 ? (Math.random() - .5) * shake * cs : 0, oy = shake > 0 ? (Math.random() - .5) * shake * cs : 0;
+  ctx.imageSmoothingEnabled = false; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(buf, -fx * cs + ox, -fy * cs + oy, bw * cs, bh * cs);
+  const S = (wx, wy) => [(wx - cam.x) * cs + ox, (wy - cam.y) * cs + oy];
+  drawRig(S);
+  if (state === 'winch' || state === 'shop') { const [ax, ay] = S(RIG_X, SURF - 9), [bx, by] = S(P.x, P.y); ctx.strokeStyle = '#d9d2c5'; ctx.lineWidth = Math.max(1.5, cs * .18); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); }
+  for (const q of rings) { const [x, y] = S(q.x, q.y); ctx.strokeStyle = `rgba(255,220,120,${q.life * 2.5})`; ctx.lineWidth = cs * .5; ctx.beginPath(); ctx.arc(x, y, q.r * cs * (1.3 - q.life), 0, 7); ctx.stroke(); }
+  const [dx, dy] = S(P.x, P.y); drawDrill(dx, dy, RS.r * cs);
+  for (const q of parts) { const [x, y] = S(q.x, q.y); ctx.fillStyle = q.col; ctx.globalAlpha = Math.min(1, q.life * 2); ctx.fillRect(x - q.s * cs / 2, y - q.s * cs / 2, q.s * cs, q.s * cs); }
+  ctx.globalAlpha = 1; ctx.textAlign = 'center'; ctx.font = `900 ${Math.round(cs * 1.25)}px system-ui,sans-serif`;
+  for (const q of pops) { const [x, y] = S(q.x, q.y); ctx.globalAlpha = Math.min(1, q.life * 1.6); ctx.fillStyle = '#000a'; ctx.fillText(q.text, x + 2, y + 2); ctx.fillStyle = q.col; ctx.fillText(q.text, x, y); }
+  ctx.globalAlpha = 1;
+  if (input.active && state === 'run') {
+    const rc = canvas.getBoundingClientRect(), ax = (input.ax - rc.left) * dpr, ay = (input.ay - rc.top) * dpr;
+    ctx.strokeStyle = '#ffffff55'; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.arc(ax, ay, JOY_R * dpr, 0, 7); ctx.stroke();
+    ctx.fillStyle = '#ffffff66'; ctx.beginPath(); ctx.arc(ax + input.x * JOY_R * dpr, ay + input.y * JOY_R * dpr, 16 * dpr, 0, 7); ctx.fill();
+  }
+}
+function drawRig(S) {
+  const [hx, hy] = S(RIG_X - 15, SURF - 6);
+  ctx.fillStyle = '#5b3b24'; ctx.fillRect(hx, hy, 9 * cs, 6 * cs);
+  ctx.fillStyle = '#b8322a'; ctx.beginPath(); ctx.moveTo(hx - cs * .6, hy); ctx.lineTo(hx + 4.5 * cs, hy - 3 * cs); ctx.lineTo(hx + 9.6 * cs, hy); ctx.fill();
+  ctx.fillStyle = '#ffd36a'; ctx.fillRect(hx + 1 * cs, hy + 2 * cs, 2 * cs, 2 * cs); ctx.fillStyle = '#2a1a10'; ctx.fillRect(hx + 5.5 * cs, hy + 2.5 * cs, 2 * cs, 3.5 * cs);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = `900 ${Math.round(cs * .9)}px system-ui,sans-serif`; ctx.fillText('GRUNT Co.', hx + 4.5 * cs, hy + 1.3 * cs);
+  const [tx, ty] = S(RIG_X, SURF - 9), [lx, by] = S(RIG_X - 3.5, SURF), [rx] = S(RIG_X + 3.5, SURF);
+  ctx.strokeStyle = '#e0a030'; ctx.lineWidth = cs * .45; ctx.beginPath(); ctx.moveTo(lx, by); ctx.lineTo(tx, ty); ctx.lineTo(rx, by);
+  ctx.moveTo(lx + (tx - lx) * .45, by + (ty - by) * .45); ctx.lineTo(rx + (tx - rx) * .45, by + (ty - by) * .45); ctx.stroke();
+  ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(tx, ty, cs * .7, 0, 7); ctx.fill();
+}
+function drawDrill(x, y, r) {
+  const col = ['#c9a227', '#d98e2b', '#e0612f', '#c23b6a', '#7a5cd6', '#2fb7c9', '#7ee05a'][Math.min(6, RS.tier - 1)];
+  ctx.save(); ctx.translate(x, y); ctx.rotate(P.ang);
+  ctx.fillStyle = '#d6d6d6'; ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = Math.max(1, r * .06);
+  for (let k = 0; k < 8; k++) { ctx.rotate(Math.PI / 4); ctx.beginPath(); ctx.moveTo(r * .62, -r * .3); ctx.lineTo(r * 1.1, 0); ctx.lineTo(r * .62, r * .3); ctx.closePath(); ctx.fill(); ctx.stroke(); }
+  ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, r * .74, 0, 7); ctx.fill();
+  ctx.fillStyle = '#1b1b1b'; ctx.beginPath(); ctx.arc(0, 0, r * .36, 0, 7); ctx.fill();
+  ctx.fillStyle = '#ffe08a'; ctx.fillRect(-r * .12, -r * .12, r * .24, r * .24);
+  ctx.restore();
+}
+function updateFx(dt) {
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const q = parts[i];
+    if (q.home && state === 'run') { const ax = P.x - q.x, ay = P.y - q.y, l = Math.hypot(ax, ay) || 1; q.vx += ax / l * 70 * dt; q.vy += ay / l * 70 * dt; if (l < .6) q.life = 0; }
+    else q.vy += q.g * dt;
+    q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt; if (q.life <= 0) parts.splice(i, 1);
+  }
+  for (let i = pops.length - 1; i >= 0; i--) { const q = pops[i]; q.y -= 1.6 * dt; q.life -= dt; if (q.life <= 0) pops.splice(i, 1); }
+  for (let i = rings.length - 1; i >= 0; i--) { rings[i].life -= dt; if (rings[i].life <= 0) rings.splice(i, 1); }
+  shake = Math.max(0, shake - dt * 2);
+  if (toastT > 0) { toastT -= dt; if (toastT <= 0) $('toast').classList.remove('on'); }
+}
+const hudCache = {};
+function setHud(id, prop, val) { const k = id + prop; if (hudCache[k] === val) return; hudCache[k] = val; if (prop === 't') $(id).textContent = val; else $(id).style.width = val; }
+function updateHUD() {
+  const inRun = state === 'run' || state === 'perk' || state === 'pause' || state === 'winch';
+  $('hud').style.display = inRun ? '' : 'none'; $('btns').style.display = state === 'run' ? '' : 'none';
+  if (!inRun || !run) return;
+  setHud('depth', 't', Math.max(0, Math.floor((P.y - SURF) * MPC)) + ' m');
+  setHud('money', 't', fmt(save.money + run.pending));
+  setHud('fuelt', 't', 'PALIWO ' + Math.max(0, Math.ceil(P.fuel / RS.burn)) + ' s');
+  setHud('fuelb', 'w', Math.max(0, Math.min(100, P.fuel / RS.fuel * 100)) + '%');
+  setHud('hpb', 'w', Math.max(0, P.hp / RS.hp * 100) + '%');
+  setHud('lvl', 't', 'WIERTŁO LV ' + run.lv);
+  setHud('xpb', 'w', Math.min(100, run.exp / run.next * 100) + '%');
+}
+
+// ====================== PĘTLA ======================
+let last = performance.now(), simAcc = 0;
+function frame(t) {
+  const dt = Math.min(.05, (t - last) / 1000); last = t; now = t;
+  if (state === 'run') updateRun(dt);
+  else if (state === 'winch') updateWinch(dt);
+  if (state === 'run' || state === 'winch' || state === 'shop') { simAcc += dt; let n = 0; while (simAcc >= 1 / 30 && n++ < 3) { simAcc -= 1 / 30; simulate(); } if (n >= 3) simAcc = 0; }
+  if (state !== 'perk' && state !== 'pause') updateFx(dt);
+  updateCamera(dt); render(); updateHUD();
+  requestAnimationFrame(frame);
+}
+
+// ====================== START ======================
+const saved = localStorage.getItem(WORLD_KEY);
+if (!saved || !decodeWorld(saved)) generate(save.seed);
+RS = computeStats(); resize();
+cam.y = 0; cam.x = Math.max(0, Math.min(W - VIEW_W, RIG_X - VIEW_W / 2));
+showShop();
+window.__grunt = { get state() { return state; }, P, save, startRun, world, W, SURF, MAT, endRun };
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
