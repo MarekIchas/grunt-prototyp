@@ -19,7 +19,8 @@ canvas{display:block;width:100%;height:100%}
 .lbl{font-size:11px;opacity:.9;margin-top:6px}
 .bar{height:8px;background:#0009;border-radius:4px;overflow:hidden;margin-top:3px;width:48%}
 .bar i{display:block;height:100%;width:0}
-.fuel i{background:linear-gradient(90deg,#ffb020,#ffd84a)}.hp i{background:#ff5a4a}.xp i{background:#7ee05a}
+.fuel i{background:linear-gradient(90deg,#ffb020,#ffd84a)}.hp i{background:#ff5a4a}
+.env{color:#8fc4ff;font-size:13px;min-height:16px}
 #btns{position:absolute;right:10px;top:calc(env(safe-area-inset-top) + 46px);display:flex;flex-direction:column;gap:8px}
 .ib{width:46px;height:46px;border-radius:12px;border:2px solid #fff3;background:#000a;color:#fff;font-weight:900;font-size:15px}
 .ib.sos{background:#b3261e;border-color:#ff8a80}
@@ -47,9 +48,8 @@ h3{font-size:15px;opacity:.85;margin-bottom:4px}
 .elev{display:flex;flex-wrap:wrap;gap:6px}
 .sel-btn{padding:8px 11px;border-radius:10px;border:1px solid #ffffff2a;background:#ffffff10;color:#fff;font-weight:700}
 .sel-btn.on{background:var(--acc);color:#2a1700}
-.perks{display:flex;flex-direction:column;gap:10px}
-.perk{text-align:left;padding:14px;border-radius:14px;border:2px solid #7ee05a66;background:#11240bdd;color:#fff;font-size:14px}
-.perk b{font-size:17px;color:#b8ff9a;display:block;margin-bottom:2px}
+.sec{margin:12px 0 2px;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--acc)}
+.upg.locked{opacity:.45}
 .muted{opacity:.7;font-size:13px}
 </style>
 </head>
@@ -60,7 +60,7 @@ h3{font-size:15px;opacity:.85;margin-bottom:4px}
     <div class="row"><div id="depth">0 m</div><div id="money">$0</div></div>
     <div class="lbl" id="fuelt">PALIWO</div><div class="bar fuel"><i id="fuelb"></i></div>
     <div class="lbl">KADŁUB</div><div class="bar hp"><i id="hpb"></i></div>
-    <div class="lbl" id="lvl">WIERTŁO LV 0</div><div class="bar xp"><i id="xpb"></i></div>
+    <div class="lbl env" id="envt"></div>
   </div>
   <div id="btns"><button class="ib" id="pauseBtn" aria-label="Pauza">II</button><button class="ib sos" id="sosBtn" aria-label="Wezwij wyciągarkę">SOS</button></div>
   <div id="toast"></div>
@@ -76,7 +76,7 @@ const W = 64, H = 2720, SURF = 12, MPC = 0.5, VIEW_W = 40, RIG_X = W / 2;
 // ====================== MATERIAŁY ======================
 // kind: 0 pusty, 1 stały, 2 sypki (piasek), 3 ciecz
 const MAT = [];
-function def(name, col, kind, tier, hp, o = {}) { MAT.push(Object.assign({ name, col, kind, tier, hp, val: 0, xp: 0, ore: false }, o)); return MAT.length - 1; }
+function def(name, col, kind, tier, hp, o = {}) { MAT.push(Object.assign({ name, col, kind, tier, hp, val: 0, ore: false }, o)); return MAT.length - 1; }
 const AIR = def('Pustka', [38, 26, 19], 0, 0, 0);
 const DIRT = def('Ziemia', [146, 96, 58], 1, 1, 1);
 const CLAY = def('Glina', [168, 108, 76], 1, 1, 1.6);
@@ -89,14 +89,15 @@ const OBSID = def('Obsydian', [44, 26, 64], 1, 4, 10);
 const BEDROCK = def('Skała macierzysta', [22, 20, 24], 1, 99, 1e9);
 const WATER = def('Woda', [48, 108, 228], 3, 0, 0);
 const LAVA = def('Lawa', [255, 112, 24], 3, 0, 0);
-const COAL = def('Węgiel', [40, 38, 40], 1, 1, 1.4, { val: 1, xp: 1, ore: true });
-const COPPER = def('Miedź', [222, 126, 58], 1, 1, 2, { val: 3, xp: 2, ore: true });
-const IRON = def('Żelazo', [205, 180, 166], 1, 2, 3.5, { val: 8, xp: 3, ore: true });
-const SILVER = def('Srebro', [226, 232, 244], 1, 2, 4, { val: 18, xp: 4, ore: true });
-const GOLD = def('Złoto', [255, 206, 38], 1, 3, 6, { val: 45, xp: 6, ore: true });
-const RUBY = def('Rubin', [230, 30, 72], 1, 4, 9, { val: 110, xp: 9, ore: true });
-const EMERALD = def('Szmaragd', [40, 220, 112], 1, 4, 10, { val: 180, xp: 12, ore: true });
-const DIAMOND = def('Diament', [160, 244, 255], 1, 5, 14, { val: 420, xp: 18, ore: true });
+// Kolory rud są celowo nasycone i odcięte od barw skał, żeby ruda była widoczna z daleka.
+const COAL = def('Węgiel', [26, 26, 32], 1, 1, 1.4, { val: 1, ore: true });
+const COPPER = def('Miedź', [255, 118, 34], 1, 1, 2, { val: 3, ore: true });
+const IRON = def('Żelazo', [236, 150, 120], 1, 2, 3.5, { val: 8, ore: true });
+const SILVER = def('Srebro', [236, 242, 255], 1, 2, 4, { val: 18, ore: true });
+const GOLD = def('Złoto', [255, 216, 0], 1, 3, 6, { val: 45, ore: true });
+const RUBY = def('Rubin', [255, 28, 84], 1, 4, 9, { val: 110, ore: true });
+const EMERALD = def('Szmaragd', [24, 245, 120], 1, 4, 10, { val: 180, ore: true });
+const DIAMOND = def('Diament', [140, 250, 255], 1, 5, 14, { val: 420, ore: true });
 const FUEL = def('Kanister', [240, 200, 40], 1, 1, 1);
 const CHEST = def('Skrzynia', [196, 134, 44], 1, 1, 2);
 const KIND = new Uint8Array(MAT.map(m => m.kind));
@@ -112,7 +113,7 @@ const LAYERS = [
 ];
 const layerAt = d => { for (const L of LAYERS) if (d < L.to) return L; return LAYERS[LAYERS.length - 1]; };
 
-// ====================== ULEPSZENIA I PERKI ======================
+// ====================== ULEPSZENIA (tylko w bazie na powierzchni) ======================
 const UPG = [
   { id: 'drill', ic: '⛏️', n: 'Wiertło', max: 10, base: 30, g: 1.7, d: l => `moc ${(4 * 1.3 ** l).toFixed(1)} · klasa ${1 + Math.floor((l + 1) / 2)}` },
   { id: 'engine', ic: '⚙️', n: 'Silnik', max: 10, base: 20, g: 1.6, d: l => `prędkość ${(6 + .9 * l).toFixed(1)}` },
@@ -120,26 +121,16 @@ const UPG = [
   { id: 'hull', ic: '🛡️', n: 'Kadłub', max: 10, base: 40, g: 1.65, d: l => `HP ${100 + 35 * l} · żar −${Math.round(Math.min(.6, .06 * l) * 100)}%` },
   { id: 'lamp', ic: '🔦', n: 'Reflektor', max: 8, base: 15, g: 1.6, d: l => `zasięg ${8 + 2 * l}` },
   { id: 'trade', ic: '💰', n: 'Handel', max: 10, base: 60, g: 1.8, d: l => `wartość rudy ×${(1 + .15 * l).toFixed(2)}` },
+  { id: 'wide', sp: 1, unlock: 40, ic: '🌀', n: 'Szeroki frez', max: 4, base: 150, g: 2.2, d: l => `promień ${(1.8 * 1.15 ** l).toFixed(2)}` },
+  { id: 'sonar', sp: 1, unlock: 100, ic: '📡', n: 'Sonar', max: 2, base: 250, g: 4, d: l => l ? `ruda widoczna do ${8 + 6 * l} pól` : 'wyłączony' },
+  { id: 'chain', sp: 1, unlock: 160, ic: '⛓️', n: 'Reakcja łańcuchowa', max: 1, base: 600, g: 1, d: l => l ? 'ruda kruszy sąsiednią rudę' : 'wyłączona' },
+  { id: 'blast', sp: 1, unlock: 250, ic: '💥', n: 'Ładunek sejsmiczny', max: 3, base: 400, g: 2.5, d: l => l ? `wybuch co ${7 - l} s` : 'wyłączony' },
 ];
-const PERKS = [
-  { id: 'wide', n: 'Szeroki frez', d: 'Promień wiertła +22%', max: 4 },
-  { id: 'turbo', n: 'Turbo', d: 'Prędkość +18%', max: 5 },
-  { id: 'carbide', n: 'Węgliki spiekane', d: 'Moc kopania +30%', max: 5 },
-  { id: 'eco', n: 'Oszczędny silnik', d: 'Spalanie paliwa −15%', max: 4 },
-  { id: 'gold', n: 'Gorączka złota', d: 'Wartość rudy +25%', max: 5 },
-  { id: 'cool', n: 'Chłodnica', d: 'Obrażenia od lawy −35%', max: 3 },
-  { id: 'light', n: 'Szperacz', d: 'Zasięg światła +3', max: 3 },
-  { id: 'chain', n: 'Reakcja łańcuchowa', d: 'Rozbita ruda kruszy sąsiednią rudę tego samego typu', max: 1 },
-  { id: 'blast', n: 'Ładunek sejsmiczny', d: 'Co kilka sekund eksplozja wokół wiertła', max: 3 },
-  { id: 'sonar', n: 'Sonar', d: 'Ruda widoczna w ciemności', max: 2 },
-  { id: 'fuel', n: 'Kanister', d: 'Od razu +35% paliwa', max: 99, instant: true },
-  { id: 'heal', n: 'Spawarka', d: 'Od razu naprawia 60% kadłuba', max: 99, instant: true },
-];
-const xpNeed = lv => Math.round(10 * 1.5 ** lv);
+const upgCost = u => Math.round(u.base * u.g ** save.lv[u.id]);
 
 // ====================== ZAPIS ======================
 const SAVE_KEY = 'grunt_save_v1', WORLD_KEY = 'grunt_world_v1';
-let save = { money: 0, lv: { drill: 0, engine: 0, tank: 0, hull: 0, lamp: 0, trade: 0 }, best: 0, runs: 0, earned: 0, seed: (Math.random() * 1e9) | 0, startDepth: 0, sound: true, vib: true };
+let save = { money: 0, lv: { drill: 0, engine: 0, tank: 0, hull: 0, lamp: 0, trade: 0, wide: 0, sonar: 0, chain: 0, blast: 0 }, best: 0, runs: 0, earned: 0, seed: (Math.random() * 1e9) | 0, startDepth: 0, sound: true, vib: true };
 try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) save = Object.assign(save, s, { lv: Object.assign(save.lv, s.lv || {}) }); } catch (e) {}
 
 // ====================== SZUM / GENERATOR ======================
@@ -222,12 +213,12 @@ const parts = [], pops = [], rings = [];
 const input = { active: false, ax: 0, ay: 0, cx: 0, cy: 0, x: 0, y: 0 }, keys = new Set();
 
 function computeStats() {
-  const l = save.lv, p = (run && run.perks) || {};
-  const s = { power: 4 * 1.3 ** l.drill, tier: 1 + Math.floor((l.drill + 1) / 2), speed: 6 + .9 * l.engine, fuel: 25 + 9 * l.tank, hp: 100 + 35 * l.hull, heat: Math.min(.6, .06 * l.hull), light: 8 + 2 * l.lamp, value: 1 + .15 * l.trade, r: 1.8, burn: 1 };
-  s.r *= 1.22 ** (p.wide || 0); s.speed *= 1.18 ** (p.turbo || 0); s.power *= 1.3 ** (p.carbide || 0); s.burn *= .85 ** (p.eco || 0);
-  s.value *= 1 + .25 * (p.gold || 0); s.heat = 1 - (1 - s.heat) * .65 ** (p.cool || 0); s.light += 3 * (p.light || 0);
-  s.chain = !!p.chain; s.blast = p.blast || 0; s.sonar = p.sonar || 0;
-  return s;
+  const l = save.lv;
+  return {
+    power: 4 * 1.3 ** l.drill, tier: 1 + Math.floor((l.drill + 1) / 2), speed: 6 + .9 * l.engine, fuel: 25 + 9 * l.tank,
+    hp: 100 + 35 * l.hull, heat: Math.min(.6, .06 * l.hull), light: 8 + 2 * l.lamp, value: 1 + .15 * l.trade,
+    r: 1.8 * 1.15 ** l.wide, burn: 1, chain: l.chain > 0, blast: l.blast, sonar: l.sonar,
+  };
 }
 
 // ====================== GEOMETRIA ======================
@@ -310,7 +301,7 @@ function toast(t, dur = 2.2) { const e = $('toast'); e.innerHTML = t; e.classLis
 
 // ====================== KOPANIE ======================
 let tooHard = false;
-function dig(dt, jx, jy, moving) {
+function dig(dt, jx, jy, moving, pf) {
   const reach = RS.r + .45, reach2 = reach * reach; let dug = false; tooHard = false;
   for (let y = Math.floor(P.y - reach); y <= Math.floor(P.y + reach); y++) for (let x = Math.floor(P.x - reach); x <= Math.floor(P.x + reach); x++) {
     if (x < 1 || x >= W - 1 || y < 0 || y >= H) continue;
@@ -321,7 +312,7 @@ function dig(dt, jx, jy, moving) {
     if (mt.tier > RS.tier) { if (m !== BEDROCK) tooHard = true; continue; }
     let f = .45;
     if (moving) { const cx = x + .5 - P.x, cy = y + .5 - P.y, l = Math.hypot(cx, cy) || 1; if ((cx * jx + cy * jy) / l > .25) f = 1; }
-    dmg[i] += RS.power * f * dt; dug = true;
+    dmg[i] += RS.power * f * pf * dt; dug = true;
     if (dmg[i] >= mt.hp) breakCell(x, y, 0);
   }
   return dug;
@@ -333,13 +324,13 @@ function breakCell(x, y, ch) {
   const depthM = Math.max(0, (y - SURF) * MPC);
   if (mt.ore) {
     const v = Math.max(1, Math.round(mt.val * (1 + depthM / 400) * RS.value));
-    run.pending += v; run.exp += mt.xp; run.ores[m] = (run.ores[m] || 0) + 1; blip(520 + mt.xp * 45, .05, .04);
+    run.pending += v; run.ores[m] = (run.ores[m] || 0) + 1; blip(520 + Math.min(14, Math.log2(mt.val + 1) * 2) * 45, .05, .04);
     if (RS.chain && ch < 8) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx > 0 && nx < W - 1 && world[ny * W + nx] === m) breakCell(nx, ny, ch + 1); }
   } else if (m === FUEL) {
-    P.fuel = Math.min(RS.fuel * 1.25, P.fuel + 8); popup(x + .5, y, '+8 s ⛽', '#ffd84a'); blip(880, .12); run.exp += 1;
+    P.fuel = Math.min(RS.fuel * 1.25, P.fuel + 8); popup(x + .5, y, '+8 s ⛽', '#ffd84a'); blip(880, .12);
   } else if (m === CHEST) {
-    const v = Math.round((30 + depthM * .8) * RS.value); run.pending += v; run.exp += 10; popup(x + .5, y - 1, 'SKRZYNIA!', '#ffb020'); blip(660, .2); vib(40);
-  } else run.exp += .05;
+    const v = Math.round((30 + depthM * .8) * RS.value); run.pending += v; popup(x + .5, y - 1, 'SKRZYNIA!', '#ffb020'); blip(660, .2); vib(40);
+  }
 }
 function blast() {
   const r = 2.6 + .6 * RS.blast;
@@ -352,7 +343,7 @@ function blast() {
 
 // ====================== PRZEBIEG WYPRAWY ======================
 function startRun(sd) {
-  run = { time: 0, exp: 0, lv: 0, next: xpNeed(0), ores: {}, earn: 0, pending: 0, pendT: 0, maxDepth: 0, perks: {}, blastT: 0, stuck: 0, layer: '', reason: '', startDepth: sd };
+  run = { time: 0, ores: {}, earn: 0, pending: 0, pendT: 0, maxDepth: 0, blastT: 0, stuck: 0, layer: '', reason: '', startDepth: sd, wetHint: false };
   RS = computeStats();
   P.x = RIG_X; P.ang = 0;
   if (sd > 0) { P.y = SURF + sd / MPC; carve(P.x, P.y, 3.2); } else P.y = SURF - 2.5;
@@ -361,24 +352,33 @@ function startRun(sd) {
   if (save.runs === 0) { $('hint').classList.add('on'); setTimeout(() => $('hint').classList.remove('on'), 6000); }
 }
 function flushMoney() { if (run.pending > 0) { save.money += run.pending; run.earn += run.pending; popup(P.x, P.y - RS.r - .6, '+$' + run.pending, '#ffe27a'); run.pending = 0; } run.pendT = 0; }
+// Woda: im większa część otoczenia wiertła jest zalana, tym mocniej spowalnia ruch i kopanie.
+const WATER_MOVE = .72, WATER_DIG = .6;
 function probeEnv() {
-  const r = RS.r + .6, r2 = r * r; let water = false, lava = false;
+  const r = RS.r + .6, r2 = r * r; let open = 0, wet = 0, lava = false;
   for (let y = Math.floor(P.y - r); y <= P.y + r; y++) for (let x = Math.floor(P.x - r); x <= P.x + r; x++) {
-    if (x < 0 || x >= W || y < 0 || y >= H) continue; const m = world[y * W + x];
-    if ((m === WATER || m === LAVA) && sqDistToCell(P.x, P.y, x, y) < r2) { if (m === WATER) water = true; else lava = true; }
+    if (x < 0 || x >= W || y < 0 || y >= H || sqDistToCell(P.x, P.y, x, y) >= r2) continue;
+    const m = world[y * W + x], k = KIND[m];
+    if (m === LAVA) lava = true;
+    if (k === 0 || k === 3) { open++; if (m === WATER) wet++; }
   }
-  return { water, lava };
+  const s = open ? Math.min(1, wet / open * 1.6) : 0;
+  return { wet: s, move: 1 - WATER_MOVE * s, dig: 1 - WATER_DIG * s, lava };
 }
 function updateRun(dt) {
   run.time += dt;
   let jx = input.x, jy = input.y;
   if (keys.size) { jx = (keys.has('ArrowRight') || keys.has('d') ? 1 : 0) - (keys.has('ArrowLeft') || keys.has('a') ? 1 : 0); jy = (keys.has('ArrowDown') || keys.has('s') ? 1 : 0) - (keys.has('ArrowUp') || keys.has('w') ? 1 : 0); }
   const mag = Math.hypot(jx, jy), moving = mag > .12; if (mag > 1) { jx /= mag; jy /= mag; }
-  const env = probeEnv();
-  const dug = dig(dt, jx / (mag || 1), jy / (mag || 1), moving);
+  const env = probeEnv(); run.env = env;
+  const dug = dig(dt, jx / (mag || 1), jy / (mag || 1), moving, env.dig);
   let movedNow = false;
-  if (moving) movedNow = tryMove(jx * RS.speed * (env.water ? .62 : 1) * dt, jy * RS.speed * (env.water ? .62 : 1) * dt);
-  P.ang += dt * (dug ? 20 : 8);
+  if (moving) movedNow = tryMove(jx * RS.speed * env.move * dt, jy * RS.speed * env.move * dt);
+  P.ang += dt * (dug ? 20 : 8) * (1 - .5 * env.wet);
+  if (env.wet > .25) {
+    if (Math.random() < env.wet * .5) addPart({ x: P.x + (Math.random() - .5) * RS.r * 2, y: P.y, vx: (Math.random() - .5), vy: -3 - Math.random() * 2, life: .8, col: 'rgba(200,230,255,.8)', s: .35, g: -1 });
+    if (!run.wetHint) { run.wetHint = true; toast('💧 Woda spowalnia wiertło!', 1.6); }
+  }
   if (P.y > SURF) P.fuel -= dt * (1 + (dug ? .35 : 0)) * RS.burn;
   if (env.lava) { P.hp -= dt * 34 * (1 - RS.heat); shake = Math.max(shake, .25); if (Math.random() < .3) addPart({ x: P.x, y: P.y, vx: (Math.random() - .5) * 6, vy: -4, life: .4, col: '#ffb020', s: .3, g: 10 }); if (Math.random() < .05) vib(20); }
   const dm = Math.max(0, (P.y - SURF) * MPC); run.maxDepth = Math.max(run.maxDepth, Math.floor(dm));
@@ -387,7 +387,6 @@ function updateRun(dt) {
   if (RS.blast) { run.blastT += dt; if (run.blastT > 7 - RS.blast) { run.blastT = 0; blast(); } }
   if (moving && !movedNow && tooHard) { run.stuck += dt; if (run.stuck > 2.2) { toast('Za twarda skała!<br><small>Ulepsz Wiertło (klasa) albo użyj SOS</small>', 2.5); run.stuck = -4; } } else if (run.stuck > 0) run.stuck = 0;
   drillSound(dug ? 1 : moving ? .5 : .25);
-  if (run.exp >= run.next) { run.exp -= run.next; run.lv++; run.next = xpNeed(run.lv); flushMoney(); openPerk(); return; }
   if (P.fuel <= 0) endRun('fuel'); else if (P.hp <= 0) endRun('hull'); else if (P.y > H - 8) endRun('bottom');
 }
 const REASONS = { fuel: 'Brak paliwa — wyciągarka!', hull: 'Kadłub zniszczony — wyciągarka!', sos: 'SOS — wyciągarka w drodze', bottom: 'Dno prototypu osiągnięte!' };
@@ -409,28 +408,30 @@ function finishRun() {
   lastSummary = run; run = null; RS = computeStats(); persist(); showShop();
 }
 
-// ====================== PANELE (SKLEP, PERKI, PAUZA) ======================
+// ====================== PANELE (BAZA, PAUZA) ======================
 function hidePanel() { panel.className = 'hidden'; panel.innerHTML = ''; }
 const fmt = n => '$' + Math.floor(n).toLocaleString('pl-PL');
 function showShop() {
   const s = lastSummary;
-  const cost = u => Math.round(u.base * u.g ** save.lv[u.id]);
   const depths = []; for (let d = 0; d <= Math.min(save.best, 1300); d += 100) depths.push(d);
   if (!depths.includes(save.startDepth)) save.startDepth = 0;
   let h = `<h1>GRUNT!</h1><div class="muted">Prototyp rdzenia · baza GRUNT Co.</div>`;
   if (s) {
     const ores = Object.entries(s.ores).sort((a, b) => MAT[b[0]].val - MAT[a[0]].val).map(([m, n]) => `<span class="chip" style="border-left:6px solid ${CSS[m]}">${MAT[m].name} ×${n}</span>`).join('');
     h += `<div class="card"><h3>${REASONS[s.reason] || 'Koniec wyprawy'}</h3>
-      <div>Głębokość: <b>${s.maxDepth} m</b> · Czas: <b>${Math.round(s.time)} s</b> · Wiertło LV <b>${s.lv}</b></div>
+      <div>Głębokość: <b>${s.maxDepth} m</b> · Czas: <b>${Math.round(s.time)} s</b></div>
       <div>Zarobek: <b style="color:#ffe27a">${fmt(s.earn)}</b> · Rekord: <b>${save.best} m</b></div>
       ${ores ? `<div class="chips">${ores}</div>` : ''}
       ${s.reason === 'bottom' ? '<div class="muted" style="margin-top:6px">W pełnej grze: kolejne warstwy, Jądro i Koncesja (prestiż).</div>' : ''}</div>`;
   }
-  h += `<div class="card"><div class="row"><h3>Kasa firmy</h3><div class="big">${fmt(save.money)}</div></div>`;
+  h += `<div class="card"><div class="row"><h3>Warsztat · kasa firmy</h3><div class="big">${fmt(save.money)}</div></div>`;
+  let sec = -1;
   for (const u of UPG) {
-    const l = save.lv[u.id], mx = l >= u.max, c = cost(u);
-    h += `<div class="upg"><div class="ic">${u.ic}</div><div class="nm"><b>${u.n} <span class="muted">Lv ${l}/${u.max}</span></b><small>${u.d(l)}${mx ? '' : ' → ' + u.d(l + 1).split(' · ')[0]}</small></div>
-      <button class="buy" data-act="buy" data-id="${u.id}" ${mx || save.money < c ? 'disabled' : ''}>${mx ? 'MAX' : fmt(c)}</button></div>`;
+    const sp = u.sp ? 1 : 0; if (sp !== sec) { sec = sp; h += `<div class="sec">${sp ? 'Wyposażenie specjalne' : 'Podstawowe'}</div>`; }
+    const l = save.lv[u.id], mx = l >= u.max, c = upgCost(u), locked = u.unlock && save.best < u.unlock;
+    const btn = locked ? `🔒 ${u.unlock} m` : mx ? 'MAX' : fmt(c);
+    h += `<div class="upg ${locked ? 'locked' : ''}"><div class="ic">${u.ic}</div><div class="nm"><b>${u.n} <span class="muted">Lv ${l}/${u.max}</span></b><small>${locked ? `Odblokuj, osiągając rekord ${u.unlock} m` : u.d(l) + (mx ? '' : ' → ' + u.d(l + 1).split(' · ')[0])}</small></div>
+      <button class="buy" data-act="buy" data-id="${u.id}" ${locked || mx || save.money < c ? 'disabled' : ''}>${btn}</button></div>`;
   }
   h += `</div><div class="card"><h3>Winda (start wyprawy)</h3><div class="elev">${depths.map(d => `<button class="sel-btn ${d === save.startDepth ? 'on' : ''}" data-act="depth" data-d="${d}">${d} m</button>`).join('')}</div>
     <div class="muted" style="margin-top:6px">Nowe stacje windy co 100 m rekordu.</div></div>
@@ -443,20 +444,6 @@ function showShop() {
       <div class="muted" style="margin-top:8px">Wyprawy: ${save.runs} · Zarobione łącznie: ${fmt(save.earned)} · Działa offline, bez reklam.</div></div>`;
   panel.className = ''; panel.innerHTML = h;
 }
-function openPerk() {
-  state = 'perk'; drillSound(0); vib(50); blip(990, .15); blip(1320, .2);
-  const avail = PERKS.filter(p => (run.perks[p.id] || 0) < p.max);
-  const pick = []; while (pick.length < 3 && avail.length) pick.push(avail.splice((Math.random() * avail.length) | 0, 1)[0]);
-  panel.className = 'glass';
-  panel.innerHTML = `<h2 style="text-align:center;color:#7ee05a;font-size:30px">WIERTŁO LV ${run.lv}!</h2><div class="muted" style="text-align:center">Wybierz ulepszenie na tę wyprawę</div>
-    <div class="perks">${pick.map(p => `<button class="perk" data-act="perk" data-id="${p.id}"><b>${p.n}${p.instant ? '' : ` <span class="muted">${(run.perks[p.id] || 0)}→${(run.perks[p.id] || 0) + 1}</span>`}</b>${p.d}</button>`).join('')}</div>`;
-}
-function applyPerk(id) {
-  const p = PERKS.find(q => q.id === id); run.perks[id] = (run.perks[id] || 0) + 1; RS = computeStats();
-  if (id === 'fuel') P.fuel = Math.min(RS.fuel * 1.25, P.fuel + RS.fuel * .35);
-  if (id === 'heal') P.hp = Math.min(RS.hp, P.hp + RS.hp * .6);
-  toast(p.n + '!', 1); state = 'run'; hidePanel();
-}
 function openPause() {
   if (state !== 'run') return; state = 'pause'; drillSound(0);
   panel.className = 'glass';
@@ -467,14 +454,13 @@ function openPause() {
 panel.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return; audioInit();
   const a = b.dataset.act;
-  if (a === 'buy') { const u = UPG.find(q => q.id === b.dataset.id), c = Math.round(u.base * u.g ** save.lv[u.id]); if (save.money >= c && save.lv[u.id] < u.max) { save.money -= c; save.lv[u.id]++; RS = computeStats(); blip(740, .1); persist(); showShop(); } }
+  if (a === 'buy') { const u = UPG.find(q => q.id === b.dataset.id), c = upgCost(u); if (state === 'shop' && save.money >= c && save.lv[u.id] < u.max && !(u.unlock && save.best < u.unlock)) { save.money -= c; save.lv[u.id]++; RS = computeStats(); blip(740, .1); persist(); showShop(); } }
   else if (a === 'depth') { save.startDepth = +b.dataset.d; showShop(); }
   else if (a === 'go') { blip(440, .1); startRun(save.startDepth); }
   else if (a === 'sound' || a === 'psound') { save.sound = !save.sound; persist(); a === 'sound' ? showShop() : (state = 'run', openPause()); }
   else if (a === 'vib' || a === 'pvib') { save.vib = !save.vib; persist(); a === 'vib' ? showShop() : (state = 'run', openPause()); }
   else if (a === 'newworld') { if (confirm('Wygenerować nowy świat? Ulepszenia i kasa zostają.')) { save.seed = (Math.random() * 1e9) | 0; generate(save.seed); save.startDepth = 0; persist(); showShop(); } }
   else if (a === 'reset') { if (confirm('Usunąć cały postęp?')) { noSave = true; localStorage.removeItem(SAVE_KEY); localStorage.removeItem(WORLD_KEY); location.reload(); } }
-  else if (a === 'perk') applyPerk(b.dataset.id);
   else if (a === 'resume') { state = 'run'; hidePanel(); }
   else if (a === 'sos') { state = 'run'; endRun('sos'); }
 });
@@ -511,9 +497,12 @@ function updateCamera(dt) {
   const tx = Math.max(0, Math.min(W - VIEW_W, P.x - VIEW_W / 2)), ty = Math.max(0, Math.min(H - VIEW_H, P.y - VIEW_H * .45));
   const k = Math.min(1, dt * (state === 'winch' ? 12 : 6)); cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
 }
+let oreN = 0, oreI = new Int16Array(0), oreJ = new Int16Array(0), oreL = new Float32Array(0), oreH = new Float32Array(0);
 function render() {
   const cx0 = Math.floor(cam.x), cy0 = Math.floor(cam.y), fx = cam.x - cx0, fy = cam.y - cy0, bw = VIEW_W + 2, bh = VIEW_H + 2, d = img.data;
-  const L = RS.light, invL2 = 1 / (L * L), sonR2 = RS.sonar ? (8 + 5 * RS.sonar) ** 2 : 0, t = now / 1000;
+  const L = RS.light, invL2 = 1 / (L * L), sonR2 = RS.sonar ? (8 + 6 * RS.sonar) ** 2 : 0, t = now / 1000;
+  if (oreI.length < bw * bh) { oreI = new Int16Array(bw * bh); oreJ = new Int16Array(bw * bh); oreL = new Float32Array(bw * bh); oreH = new Float32Array(bw * bh); }
+  oreN = 0;
   let p = 0;
   for (let j = 0; j < bh; j++) {
     const y = cy0 + j;
@@ -523,30 +512,33 @@ function render() {
       const idx = y * W + x, m = world[idx], mt = MAT[m];
       if (y < SURF && m === AIR) { const k = y / SURF; d[p] = 96 + 70 * k; d[p + 1] = 160 + 50 * k; d[p + 2] = 222 + 20 * k; d[p + 3] = 255; continue; }
       let sh = .9 + hash(x, y, 5) * .2, r = mt.col[0], g = mt.col[1], b = mt.col[2];
-      if (mt.ore) { if (hash(x, y, 9) < .45) sh *= .72; }
+      if (mt.ore) sh = 1.05 + hash(x, y, 9) * .1;
       else if (m === WATER) sh = .85 + .15 * Math.sin(x * .9 + y * .4 + t * 2.5);
       else if (m === LAVA) sh = .8 + .2 * Math.sin(x * .7 + y * .5 + t * 3.2);
       else if (m === FUEL) sh = (x + y) & 1 ? 1 : .25;
       else if (m === CHEST) sh = (x + y) & 1 ? 1 : .62;
       if (m === DIRT && y === SURF) { r = 88; g = 158; b = 62; }
       const k0 = KIND[m];
-      if (k0 === 1 || k0 === 2) {
-        if (KIND[world[idx - W]] === 0) sh *= 1.18; else if (y < H - 1 && KIND[world[idx + W]] === 0) sh *= .72;
-        if (dmg[idx] > 0) sh *= 1 - .45 * Math.min(1, dmg[idx] / mt.hp);
-      }
+      if ((k0 === 1 || k0 === 2) && !mt.ore) { if (KIND[world[idx - W]] === 0) sh *= 1.18; else if (y < H - 1 && KIND[world[idx + W]] === 0) sh *= .72; }
+      if (dmg[idx] > 0 && mt.hp) sh *= 1 - .45 * Math.min(1, dmg[idx] / mt.hp);
       const dx = x + .5 - P.x, dy = y + .5 - P.y, d2 = dx * dx + dy * dy;
-      let li = 1.3 - d2 * invL2; li = li < 0 ? 0 : li > 1 ? 1 : li;
+      let li = 1.3 - d2 * invL2;
+      // Ruda odbija światło: widać ją ~1,8× dalej niż skałę, a raz odkryta zostaje dobrze widoczna.
+      if (mt.ore) li = Math.max(li, 1.3 - d2 * invL2 * .4);
+      li = li < 0 ? 0 : li > 1 ? 1 : li;
       if (y < SURF + 10) li = Math.max(li, 1 - (y - SURF) / 10);
       if (m === LAVA) li = 1;
-      if (li > .3) seen[idx] = 1; else if (seen[idx] && li < .15) li = .15;
-      if (sonR2 && mt.ore && d2 < sonR2 && li < .75) li = .75;
+      if (li > .3) seen[idx] = 1; else if (seen[idx] && li < (mt.ore ? .45 : .15)) li = mt.ore ? .45 : .15;
+      if (sonR2 && mt.ore && d2 < sonR2 && li < .8) li = .8;
       const k = sh * li; d[p] = r * k; d[p + 1] = g * k; d[p + 2] = b * k; d[p + 3] = 255;
+      if (mt.ore && li > .08) { oreI[oreN] = i; oreJ[oreN] = j; oreL[oreN] = li; oreH[oreN] = hash(x, y, 13); oreN++; }
     }
   }
   bctx.putImageData(img, 0, 0);
   const ox = shake > 0 ? (Math.random() - .5) * shake * cs : 0, oy = shake > 0 ? (Math.random() - .5) * shake * cs : 0;
   ctx.imageSmoothingEnabled = false; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(buf, -fx * cs + ox, -fy * cs + oy, bw * cs, bh * cs);
+  drawOres(fx, fy, ox, oy, t);
   const S = (wx, wy) => [(wx - cam.x) * cs + ox, (wy - cam.y) * cs + oy];
   drawRig(S);
   if (state === 'winch' || state === 'shop') { const [ax, ay] = S(RIG_X, SURF - 9), [bx, by] = S(P.x, P.y); ctx.strokeStyle = '#d9d2c5'; ctx.lineWidth = Math.max(1.5, cs * .18); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke(); }
@@ -561,6 +553,24 @@ function render() {
     ctx.strokeStyle = '#ffffff55'; ctx.lineWidth = 3 * dpr; ctx.beginPath(); ctx.arc(ax, ay, JOY_R * dpr, 0, 7); ctx.stroke();
     ctx.fillStyle = '#ffffff66'; ctx.beginPath(); ctx.arc(ax + input.x * JOY_R * dpr, ay + input.y * JOY_R * dpr, 16 * dpr, 0, 7); ctx.fill();
   }
+}
+// Ruda jako „klejnoty”: jasne fazowanie u góry i z lewej, cień u dołu i z prawej, co kilka sekund błysk.
+function drawOres(fx, fy, ox, oy, t) {
+  const bv = Math.max(1, Math.round(cs * .16));
+  for (let n = 0; n < oreN; n++) {
+    const sx = (oreI[n] - fx) * cs + ox, sy = (oreJ[n] - fy) * cs + oy, a = oreL[n];
+    ctx.globalAlpha = a * .75; ctx.fillStyle = '#fff';
+    ctx.fillRect(sx, sy, cs, bv); ctx.fillRect(sx, sy + bv, bv, cs - bv);
+    ctx.globalAlpha = a * .6; ctx.fillStyle = '#000';
+    ctx.fillRect(sx + bv, sy + cs - bv, cs - bv, bv); ctx.fillRect(sx + cs - bv, sy + bv, bv, cs - 2 * bv);
+    const ph = (t * .9 + oreH[n] * 6) % 6;
+    if (ph < .5) {
+      const s = Math.sin(ph / .5 * Math.PI) * cs * .5, cx = sx + cs / 2, cy = sy + cs / 2;
+      ctx.globalAlpha = Math.min(1, a * 1.2); ctx.fillStyle = '#fff';
+      ctx.fillRect(cx - s, cy - bv / 2, 2 * s, bv); ctx.fillRect(cx - bv / 2, cy - s, bv, 2 * s);
+    }
+  }
+  ctx.globalAlpha = 1;
 }
 function drawRig(S) {
   const [hx, hy] = S(RIG_X - 15, SURF - 6);
@@ -598,7 +608,7 @@ function updateFx(dt) {
 const hudCache = {};
 function setHud(id, prop, val) { const k = id + prop; if (hudCache[k] === val) return; hudCache[k] = val; if (prop === 't') $(id).textContent = val; else $(id).style.width = val; }
 function updateHUD() {
-  const inRun = state === 'run' || state === 'perk' || state === 'pause' || state === 'winch';
+  const inRun = state === 'run' || state === 'pause' || state === 'winch';
   $('hud').style.display = inRun ? '' : 'none'; $('btns').style.display = state === 'run' ? '' : 'none';
   if (!inRun || !run) return;
   setHud('depth', 't', Math.max(0, Math.floor((P.y - SURF) * MPC)) + ' m');
@@ -606,8 +616,8 @@ function updateHUD() {
   setHud('fuelt', 't', 'PALIWO ' + Math.max(0, Math.ceil(P.fuel / RS.burn)) + ' s');
   setHud('fuelb', 'w', Math.max(0, Math.min(100, P.fuel / RS.fuel * 100)) + '%');
   setHud('hpb', 'w', Math.max(0, P.hp / RS.hp * 100) + '%');
-  setHud('lvl', 't', 'WIERTŁO LV ' + run.lv);
-  setHud('xpb', 'w', Math.min(100, run.exp / run.next * 100) + '%');
+  const env = run.env, wetPct = env && env.wet > .05 ? Math.round((1 - env.move) * 100) : 0;
+  setHud('envt', 't', wetPct ? `💧 WODA: ruch −${wetPct}% · kopanie −${Math.round((1 - env.dig) * 100)}%` : '');
 }
 
 // ====================== PĘTLA ======================
@@ -617,7 +627,7 @@ function frame(t) {
   if (state === 'run') updateRun(dt);
   else if (state === 'winch') updateWinch(dt);
   if (state === 'run' || state === 'winch' || state === 'shop') { simAcc += dt; let n = 0; while (simAcc >= 1 / 30 && n++ < 3) { simAcc -= 1 / 30; simulate(); } if (n >= 3) simAcc = 0; }
-  if (state !== 'perk' && state !== 'pause') updateFx(dt);
+  if (state !== 'pause') updateFx(dt);
   updateCamera(dt); render(); updateHUD();
   requestAnimationFrame(frame);
 }
